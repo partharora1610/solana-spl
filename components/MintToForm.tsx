@@ -1,5 +1,6 @@
 import { useConnection, useWallet } from "@solana/wallet-adapter-react"
 import * as web3 from "@solana/web3.js"
+import { LAMPORTS_PER_SOL } from "@solana/web3.js"
 import { FC, useState } from "react"
 import styles from "../styles/Home.module.css"
 import {
@@ -20,7 +21,39 @@ export const MintToForm: FC = () => {
     return txSig ? `https://explorer.solana.com/tx/${txSig}?cluster=devnet` : ""
   }
 
-  const mintTo = async (event) => {}
+  const mintTo = async (event) => {
+    event.preventDefault()
+    if (!connection || !publicKey) {
+      return
+    }
+    const transaction = new web3.Transaction()
+
+    const mintPubKey = new web3.PublicKey(event.target.mint.value)
+    const recipientPubKey = new web3.PublicKey(event.target.recipient.value)
+    const amount = event.target.amount.value
+
+    const associatedToken = await getAssociatedTokenAddress(
+      mintPubKey,
+      recipientPubKey,
+      false,
+      TOKEN_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID
+    )
+
+    transaction.add(
+      createMintToInstruction(mintPubKey, associatedToken, publicKey, amount)
+    )
+
+    const signature = await sendTransaction(transaction, connection)
+
+    await connection.confirmTransaction(signature, "confirmed")
+
+    setTxSig(signature)
+    setTokenAccount(associatedToken.toString())
+
+    const account = await getAccount(connection, associatedToken)
+    setBalance(account.amount.toString())
+  }
 
   return (
     <div>
